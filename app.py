@@ -3,11 +3,16 @@ from flask import Flask, render_template_string, request, redirect
 
 app = Flask(__name__)
 
-# Mock Database Store (Keeps the demo lightning fast and stateful)
+# Mock Database Store (Expanded to maximize immediate color-coded visual contrast for demos)
 FEEDBACK_DB = [
+    {"text": "Love the new dark mode interface! Incredibly smooth.", "sentiment": "🟢 POSITIVE"},
     {"text": "The onboarding flow is incredibly confusing and slow.", "sentiment": "🔴 NEGATIVE"},
-    {"text": "Love the new dark mode interface!", "sentiment": "🟢 POSITIVE"}
+    {"text": "Standard quarterly security patch and platform maintenance run.", "sentiment": "🟡 NEUTRAL"},
+    {"text": "This application deployment is amazing and blazing fast!", "sentiment": "🟢 POSITIVE"},
+    {"text": "Terrible performance bottlenecks under high container load conditions.", "sentiment": "🔴 NEGATIVE"},
+    {"text": "The new analytics dashboard charts render fine.", "sentiment": "🟡 NEUTRAL"}
 ]
+
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
