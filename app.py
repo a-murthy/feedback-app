@@ -1,10 +1,11 @@
 import os
-import requests  # 🟢 Added to handle outbound API communications with your Lambda function
+import json  # 🟢 FIXED: Required to safely parse inner stringified Lambda payloads
+import requests  
 from flask import Flask, render_template_string, request, redirect
 
 app = Flask(__name__)
 
-# Mock Database Store (Expanded to maximize immediate color-coded visual contrast for demos)
+# Mock Database Store 
 FEEDBACK_DB = [
     {"text": "Love the new dark mode interface! Incredibly smooth.", "sentiment": "🟢 POSITIVE"},
     {"text": "The onboarding flow is incredibly confusing and slow.", "sentiment": "🔴 NEGATIVE"},
@@ -49,11 +50,32 @@ HTML_TEMPLATE = """
 """
 
 # ==============================================================================
-# 🟢 RESTORED CRITICAL VIEW BOUNDARY (Fixed 404 Boot Failures)
+# 🎛️ SYSTEM CORE ENTRY ROUTER (Consolidated Boundary)
 # ==============================================================================
 @app.route('/')
 def index():
-    # DAY 2 OPERATIONAL ACTION GUARDRAIL
+    # A. DAY 2 NATIVE IN-BAND LANDING (Direct out-of-band Lambda data store check)
+    ai_endpoint = os.environ.get('AI_ENDPOINT_URL') 
+    if ai_endpoint:
+        try:
+            # Query Lambda function URL synchronously to read the live toggle state
+            response = requests.get(ai_endpoint, timeout=2)
+            if response.status_code == 200:
+                # 🟢 FIXED: Safely unpacks the inner serialized string to clear type mismatches
+                lambda_payload = response.json()
+                inner_body = json.loads(lambda_payload.get('body', '{}'))
+                
+                if inner_body.get('maintenance_mode') == 'true':
+                    return """
+                    <body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#f4f6f9;">
+                        <h1>⚠️ 🛠️ DOWN FOR SCHEDULED MAINTENANCE</h1>
+                        <p>The Platform team is performing system optimizations. We will be back online shortly.</p>
+                    </body>
+                    """, 503
+        except Exception:
+            pass 
+
+    # B. DAY 2 BACKUP LOCAL FALLBACK ENGINE
     if os.environ.get('MAINTENANCE_MODE') == 'true':
         return """
         <body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#f4f6f9;">
@@ -62,34 +84,37 @@ def index():
         </body>
         """, 503
 
-    # DAY 1 ADD-ON UI MOVEMENT
+    # C. DAY 1 ADD-ON LOGIC VIEW ACTIVATION
     ai_enabled = os.environ.get('AI_ENABLED') == 'true'
     return render_template_string(HTML_TEMPLATE, submissions=FEEDBACK_DB, ai_enabled=ai_enabled)
 
 # ==============================================================================
-# 🚀 CORE SUBMISSION PROCESSOR (Day 0 Local vs Day 1 Remote API Router)
+# 🚀 RESTORED SUBMISSION HANDSHAKE ROUTE
 # ==============================================================================
 @app.route('/submit', methods=['POST'])
 def submit():
     text = request.form.get('feedback')
-    sentiment = "🟡 NEUTRAL" # Safe fallback state
+    sentiment = "🟡 NEUTRAL" 
     
-    # 🔍 DAY 1 ADD-ON LIVE INTEGRATION PATH
     ai_enabled = os.environ.get('AI_ENABLED') == 'true'
-    ai_endpoint = os.environ.get('AI_ENDPOINT_URL') # Dynamically fed by your Terraform output
+    ai_endpoint = os.environ.get('AI_ENDPOINT_URL') 
 
     if ai_enabled and ai_endpoint:
         try:
-            # Native, unauthenticated outbound handshake straight to your Lambda Endpoint URL
             response = requests.post(ai_endpoint, json={"text": text}, timeout=4)
             if response.status_code == 200:
-                data = response.json()
-                sentiment = data.get("sentiment", "🟡 NEUTRAL")
+                # 🟢 FIXED: Handle parsing safely whether it returns flat body data or proxy data
+                lambda_payload = response.json()
+                if 'body' in lambda_payload:
+                    data = json.loads(lambda_payload['body'])
+                else:
+                    data = lambda_payload
+                
+                if "sentiment" in data:
+                    sentiment = data.get("sentiment", "🟡 NEUTRAL")
         except Exception as e:
-            # Graceful fallback logging so your demo app never crashes on camera
             print(f"AI Engine Handshake Failed: {str(e)}")
             
-    # Fallback to local routing logic if AI is disabled or backend lookup times out
     else:
         if any(word in text.lower() for word in ['slow', 'bad', 'confusing', 'terrible']):
             sentiment = "🔴 NEGATIVE"
