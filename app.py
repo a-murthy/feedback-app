@@ -11,7 +11,7 @@ FEEDBACK_DB = [
     {"text": "The onboarding flow is incredibly confusing and slow.", "sentiment": "🔴 NEGATIVE"},
     {"text": "Standard quarterly security patch and platform maintenance run.", "sentiment": "🟡 NEUTRAL"},
     {"text": "This application deployment is amazing and blazing fast!", "sentiment": "🟢 POSITIVE"},
-    {"text": "Terrible performance bottlenecks under high container load conditions.", "sentiment": "🔴 NEGATIVE"},
+    {"text": "Terrible performance bottlenecks under high container load conditions.", "shadow_sentiment": "🔴 NEGATIVE", "sentiment": "🔴 NEGATIVE"},
     {"text": "The new analytics dashboard charts render fine.", "sentiment": "🟡 NEUTRAL"}
 ]
 
@@ -61,11 +61,21 @@ def index():
             # Query Lambda function URL synchronously to read the live toggle state
             response = requests.get(ai_endpoint, timeout=2)
             if response.status_code == 200:
-                # 🟢 FIXED: Safely unpacks the inner serialized string to clear type mismatches
                 lambda_payload = response.json()
-                inner_body = json.loads(lambda_payload.get('body', '{}'))
                 
-                if inner_body.get('maintenance_mode') == 'true':
+                # 🟢 BULLETPROOF UNPACKING: Gracefully handle nested proxy bodies or direct structures
+                if isinstance(lambda_payload, dict) and 'body' in lambda_payload:
+                    try:
+                        inner_body = json.loads(lambda_payload['body'])
+                    except Exception:
+                        inner_body = lambda_payload
+                else:
+                    inner_body = lambda_payload
+                
+                # Normalize the extraction to catch any capitalization or type variant safely from SSM
+                m_mode = str(inner_body.get('maintenance_mode', 'false')).strip().lower()
+                
+                if m_mode == 'true':
                     return """
                     <body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#f4f6f9;">
                         <h1>⚠️ 🛠️ DOWN FOR SCHEDULED MAINTENANCE</h1>
@@ -76,7 +86,7 @@ def index():
             pass 
 
     # B. DAY 2 BACKUP LOCAL FALLBACK ENGINE
-    if os.environ.get('MAINTENANCE_MODE') == 'true':
+    if str(os.environ.get('MAINTENANCE_MODE', 'false')).strip().lower() == 'true':
         return """
         <body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#f4f6f9;">
             <h1>⚠️ 🛠️ DOWN FOR SCHEDULED MAINTENANCE</h1>
@@ -103,9 +113,8 @@ def submit():
         try:
             response = requests.post(ai_endpoint, json={"text": text}, timeout=4)
             if response.status_code == 200:
-                # 🟢 FIXED: Handle parsing safely whether it returns flat body data or proxy data
                 lambda_payload = response.json()
-                if 'body' in lambda_payload:
+                if isinstance(lambda_payload, dict) and 'body' in lambda_payload:
                     data = json.loads(lambda_payload['body'])
                 else:
                     data = lambda_payload
